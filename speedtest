@@ -1,0 +1,61 @@
+#!/usr/bin/env python3
+"""Fetch a URL several times and report average time and download rate."""
+
+import argparse
+import time
+import urllib.error
+import urllib.request
+
+REQUESTS = 10
+CHUNK_SIZE = 64 * 1024
+
+
+def download(url):
+    """Read the complete response and return elapsed seconds and bytes."""
+    started = time.perf_counter()
+    size = 0
+
+    request = urllib.request.Request(
+        url,
+        headers={"User-Agent": "download-check/1.0"},
+    )
+    with urllib.request.urlopen(request, timeout=60) as response:
+        while True:
+            chunk = response.read(CHUNK_SIZE)
+            if not chunk:
+                break
+            size += len(chunk)
+
+    return time.perf_counter() - started, size
+
+
+def main():
+    parser = argparse.ArgumentParser(
+        description=f"Download a URL {REQUESTS} times in sequence."
+    )
+    parser.add_argument("url", help="URL to download, for example https://example.com/image.jpg")
+    args = parser.parse_args()
+
+    total_seconds = 0.0
+    total_bytes = 0
+
+    try:
+        for number in range(1, REQUESTS + 1):
+            elapsed, size = download(args.url)
+            total_seconds += elapsed
+            total_bytes += size
+            print(f"Запрос {number}/{REQUESTS}: {size:,} байт за {elapsed:.2f} с")
+    except (urllib.error.URLError, TimeoutError, ValueError) as error:
+        parser.error(f"не удалось скачать {args.url}: {error}")
+
+    average = total_seconds / REQUESTS
+    # 1 MB = 1,000,000 bytes; multiply by 8 for megabits.
+    speed_mbps = total_bytes * 8 / total_seconds / 1_000_000 if total_seconds else 0
+    print(f"\nСреднее время запроса: {average:.2f} с")
+    print(f"Всего скачано: {total_bytes:,} байт ({total_bytes / 1_000_000:.2f} MB)")
+    print(f"Средняя скорость: {speed_mbps:.2f} Мбит/с")
+
+
+if __name__ == "__main__":
+    main()
+
